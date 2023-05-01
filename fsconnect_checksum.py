@@ -13,6 +13,23 @@ message_airspeed_demo = bytearray.fromhex("02 20 00 00 1D 80 42 03")
 
 
 def create_message(gauge_type, gauge_value, checksum_type=0):
+    """Create a c172hc message.
+
+    Keyword arguments:
+    gauge_type -- Gauge type
+    gauge_value -- Gauge value
+    checksum_type -- Checksum type
+
+    The c172hc message looks like this: 0x02, gauge_type, gauge_value, checksum, 0x03
+
+    The way the checksum is calculated can be controlled with "checksum_type".
+
+    The following checksum types are supported:
+    - 0 -> checksum w/o STX: 0xFF XOR gauge_type XOR gauge_value
+    - 1 -> checksum w/ STX:  0xFF XOR 0x02 XOR gauge_type XOR gauge_value
+    - 2 -> checksum w/o STX: 0xFF - (0xFF + gauge_type + gauge_value) + 1
+    - 3 -> checksum w/ STX:  0xFF - (0xFF + 0x02 + gauge_type + gauge_value) + 1
+    """
     message = bytearray(8)
     message[0] = 0x02
     message[1] = gauge_type
@@ -32,6 +49,13 @@ def create_message(gauge_type, gauge_value, checksum_type=0):
 
 
 def checksum_xor(_message):
+    """Calculate checksum for given message (XOR).
+
+    Keyword argument:
+    _message -- Message (bytearray) for which the checksum should be calculated
+
+    The checksum is calculated by XOR each byte, starting with 0xFF
+    """
     _checksum_xor = 0xFF
     for char in _message:
         _checksum_xor = _checksum_xor ^ char
@@ -39,15 +63,24 @@ def checksum_xor(_message):
 
 
 def checksum_8bit(_message):
+    """Calculate checksum for given message (8bit sum).
+
+    Keyword argument:
+    _message -- Message (bytearray) for which the checksum should be calculated
+
+    The checksum is calculated by summing up each byte, starting with 0xFF.
+    The sum is then 'trimmed' to 8bit and a two's complement is calculated.
+    """
     _sum = 0xFF
     for char in _message:
         _sum += char
-    _sum = _sum & 0xFF
-    _sum = checksum_xor(_sum.to_bytes(1, "big")) + 1
+    _sum = _sum & 0xFF  # only use the lowest 8 Bit
+    _sum = checksum_xor(_sum.to_bytes(1, "big")) + 1  # -sum is a two's complement
     return _sum
 
 
 def print_all_checksums(value):
+    """Print message with different checksum types."""
     print(
         "Value: "
         + str(value)
